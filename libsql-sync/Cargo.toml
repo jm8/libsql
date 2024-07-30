@@ -1,0 +1,10 @@
+[package]
+name = "libsql_sync"
+version = "0.4.0"
+edition = "2021"
+description = "libSQL WAL sync protocol"
+repository = "https://github.com/tursodatabase/libsql"
+license = "MIT"
+
+[dependencies]
+libsql-sys = { version = "0.7", path = "../libsql-sys" }
