@@ -47,6 +47,8 @@ enum DbType {
         db: crate::local::Database,
         encryption_config: Option<EncryptionConfig>,
     },
+    #[cfg(feature = "replication")]
+    Offline { db: crate::local::Database },
     #[cfg(feature = "remote")]
     Remote {
         url: String,
@@ -66,6 +68,8 @@ impl fmt::Debug for DbType {
             Self::File { .. } => write!(f, "File"),
             #[cfg(feature = "replication")]
             Self::Sync { .. } => write!(f, "Sync"),
+            #[cfg(feature = "replication")]
+            Self::Offline { .. } => write!(f, "Offline"),
             #[cfg(feature = "remote")]
             Self::Remote { .. } => write!(f, "Remote"),
             _ => write!(f, "no database type set"),
@@ -333,10 +337,10 @@ cfg_replication! {
         /// Sync database from remote, and returns the committed frame_no after syncing, if
         /// applicable.
         pub async fn sync(&self) -> Result<crate::replication::Replicated> {
-            if let DbType::Sync { db, encryption_config: _ } = &self.db_type {
-                db.sync().await
-            } else {
-                Err(Error::SyncNotSupported(format!("{:?}", self.db_type)))
+            match &self.db_type {
+                DbType::Sync { db, encryption_config: _ } => db.sync().await,
+                DbType::Offline { db } => db.push().await,
+                _ => Err(Error::SyncNotSupported(format!("{:?}", self.db_type))),
             }
         }
 
@@ -591,6 +595,17 @@ impl Database {
                     self.max_write_replication_index.clone(),
                 );
                 let conn = std::sync::Arc::new(remote);
+
+                Ok(Connection { conn })
+            }
+
+            #[cfg(feature = "replication")]
+            DbType::Offline { db } => {
+                use crate::local::impls::LibsqlConnection;
+
+                let conn = db.connect()?;
+
+                let conn = std::sync::Arc::new(LibsqlConnection { conn });
 
                 Ok(Connection { conn })
             }
