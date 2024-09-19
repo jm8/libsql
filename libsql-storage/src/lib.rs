@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::local_cache::LocalCache;
 use crate::rpc::{ErrorCode, Frame};
-use libsql_sys::ffi::{SQLITE_ABORT, SQLITE_BUSY};
+use libsql_sys::ffi::{SQLITE_ABORT, SQLITE_BUSY, SQLITE_ERROR};
 use libsql_sys::name::{NamespaceName, NamespaceResolver};
 use libsql_sys::rusqlite;
 use libsql_sys::wal::{Result, Vfs, Wal, WalManager};
@@ -264,6 +264,11 @@ impl Wal for DurableWal {
             .local_cache
             .insert_frame(frame_no.into(), u32::from(page_no), &frame);
         Ok(())
+    }
+
+    fn read_frame_raw(&mut self, page_no: std::num::NonZeroU32, buffer: &mut [u8]) -> Result<()> {
+        // We don't support reading raw frames from the storage server.
+        Err(rusqlite::ffi::Error::new(SQLITE_ERROR))
     }
 
     fn db_size(&self) -> u32 {
