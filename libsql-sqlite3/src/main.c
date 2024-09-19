@@ -2426,6 +2426,35 @@ void *libsql_close_hook(
 }
 
 /*
+** Insert a frame into the WAL.
+*/
+int libsql_wal_insert_frame(
+  sqlite3* db,
+  unsigned int iFrame,
+  void *pBuf,
+  unsigned int nBuf
+){
+  int rc = SQLITE_OK;
+  Pager *pPager;
+
+#ifdef SQLITE_OMIT_WAL
+  *pnFrame = 0;
+  return SQLITE_OK;
+#else
+#ifdef SQLITE_ENABLE_API_ARMOR
+  if( !sqlite3SafetyCheckOk(db) ) return SQLITE_MISUSE_BKPT;
+#endif
+
+  sqlite3_mutex_enter(db->mutex);
+  pPager = sqlite3BtreePager(db->aDb[0].pBt);
+  rc = sqlite3PagerWalInsert(pPager, iFrame, pBuf, nBuf);
+  sqlite3_mutex_leave(db->mutex);
+
+  return rc;
+#endif
+}
+
+/*
 ** Return the number of frames in the WAL of the given database.
 */
 int libsql_wal_frame_count(

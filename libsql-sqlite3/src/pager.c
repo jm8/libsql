@@ -7771,6 +7771,52 @@ int sqlite3PagerCloseWal(Pager *pPager, sqlite3 *db){
   return rc;
 }
 
+static void frame_to_pghdr(PgHdr *pPghdr, unsigned int pgno, void *pData) {
+  pPghdr->pPage      = NULL;   /* Pcache object page handle */
+  pPghdr->pData      = pData;  /* Page data */
+  pPghdr->pExtra     = NULL;   /* Extra content */
+  pPghdr->pCache     = NULL;   /* PRIVATE: Cache that owns this page */
+  pPghdr->pDirty     = NULL;   /* Transient list of dirty sorted by pgno */
+  pPghdr->pPager     = NULL;   /* The pager this page is part of */
+  pPghdr->pgno       = pgno;   /* Page number for this page */
+  pPghdr->pageHash   = 0;      /* Hash of page content */
+  pPghdr->flags      = 0;      /* PGHDR flags defined below */
+  pPghdr->nRef       = 1;      /* Number of users of this page */
+  pPghdr->pDirtyNext = NULL;   /* Next element in list of dirty pages */
+  pPghdr->pDirtyPrev = NULL;   /* Previous element in list of dirty pages */
+}
+
+int sqlite3PagerWalInsert(Pager *pPager, unsigned int iFrame, void *pBuf, unsigned int nBuf){
+  // TODO: extract frame header to determine if it's commit
+  // TODO: verify the checksums
+  if( pagerUseWal(pPager) ){
+    // TODO: We need a write lock here.
+    assert(nBuf == 24 + page_size);
+    u8 *aFrame = pBuf;
+    u8 *pData = pBuf + 24;
+    u32 pgno;                 /* Database page number for frame */
+    u32 nTruncate;            /* dbsize field from frame header */
+    int rc;
+    pgno = sqlite3Get4byte(&aFrame[0]);
+    nTruncate = sqlite3Get4byte(&aFrame[4]);
+    PgHdr pList;
+    int isCommit = nTruncate != 0;
+    int sync_flags = 0;
+    int pnFrames;
+    frame_to_pghdr(&pList, pgno, pData);
+    rc = pPager->wal->methods.xBeginWriteTransaction(pPager->wal->pData);
+    if (rc != SQLITE_OK) {
+      return rc;
+    }
+    rc = pPager->wal->methods.xFrames(pPager->wal->pData, pPager->pageSize, &pList, nTruncate, isCommit, sync_flags, &pnFrames);
+    if (rc != SQLITE_OK) {
+      return rc;
+    }
+    return pPager->wal->methods.xEndWriteTransaction(pPager->wal->pData);
+  }
+  return SQLITE_ERROR;
+}
+
 unsigned int sqlite3PagerWalFrameCount(Pager *pPager){
   if( pagerUseWal(pPager) ){
     // TODO: We are under sqlite3 mutex, but do we need something else?
