@@ -166,6 +166,14 @@ impl<FS: Io> Wal for LibsqlWal<FS> {
         Ok(())
     }
 
+    fn read_frame_raw(
+        &mut self,
+        page_no: std::num::NonZeroU32,
+        buffer: &mut [u8],
+    ) -> libsql_sys::wal::Result<()> {
+        Err(libsql_sys::wal::Error::new(libsql_sys::ffi::SQLITE_ERROR))
+    }
+
     #[tracing::instrument(skip_all, fields(id = self.conn_id))]
     fn db_size(&self) -> u32 {
         let db_size = match self.tx.as_ref() {
