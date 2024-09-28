@@ -125,7 +125,7 @@ pub fn build_bundled(out_dir: &str, out_path: &Path) {
         .flag("-DSQLITE_ENABLE_STAT2")
         .flag("-DSQLITE_ENABLE_STAT4")
         .flag("-DSQLITE_SOUNDEX")
-        .flag("-DSQLITE_THREADSAFE=1")
+        .flag("-DSQLITE_THREADSAFE=2")
         .flag("-DSQLITE_USE_URI")
         .flag("-DHAVE_USLEEP=1")
         .flag("-D_POSIX_THREAD_SAFE_FUNCTIONS") // cross compile with MinGW
